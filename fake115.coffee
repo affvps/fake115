@@ -1,7 +1,7 @@
 `// ==UserScript==
 // @name         fake 115Browser
 // @namespace    http://github.com/kkHAIKE/fake115
-// @version      1.3.5
+// @version      1.3.8
 // @description  伪装115浏览器
 // @author       kkhaike
 // @match        *://115.com/*
@@ -15,12 +15,13 @@
 // @require      https://cdn.bootcss.com/crc-32/1.2.0/crc32.min.js
 // @require      https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.min.js
 // @require      https://cdn.bootcss.com/aes-js/3.1.0/index.min.js
-// @require      https://rawgit.com/kkHAIKE/node-lz4/balabala/build/lz4.min.js
-// @require      https://rawgit.com/indutny/elliptic/master/dist/elliptic.min.js
-// @require      https://rawgit.com/emn178/js-md4/master/build/md4.min.js
-// @require      https://rawgit.com/kkHAIKE/fake115/master/fec115.min.js
+// @require      https://raw.github.com/kkHAIKE/node-lz4/balabala/build/lz4.min.js
+// @require      https://raw.github.com/indutny/elliptic/master/dist/elliptic.min.js
+// @require      https://raw.github.com/emn178/js-md4/master/build/md4.min.js
+// @require      https://raw.github.com/kkHAIKE/fake115/master/fec115.min.js
 // @require      https://cdn.bootcss.com/jsSHA/2.3.1/sha1.js
-// @require      https://rawgit.com/pierrec/js-xxhash/master/build/xxhash.min.js
+// @require      https://raw.github.com/pierrec/js-xxhash/master/build/xxhash.min.js
+// @require      https://raw.github.com/omichelsen/compare-versions/master/index.js
 // @run-at       document-start
 // ==/UserScript==
 (function() {
@@ -103,7 +104,8 @@ ec115_encode_data = (data, key) ->
     rets.push Buffer.from key2
 
     j += 16
-  return Buffer.concat(rets).toString 'latin1'
+  return Buffer.concat rets
+
 
 ec115_decode_aes = (data, key) ->
   key1 = key[0...16]
@@ -255,13 +257,15 @@ LoginEncrypt_ = ({account, passwd, environment, goto, login_type}, g, {pub, key}
   GM_xmlhttpRequest
     method: 'POST'
     url: "http://passport.115.com/?ct=encrypt&ac=login&k_ec=#{token}" #encodeURIComponent
-    data: data
+    data: if GM_info.scriptHandler is 'Violentmonkey' and compareVersions.compare GM_info.version, 'v2.12.2', '<' then new Blob [data.buffer], {type: 'application/octet-binary'} else data.toString 'latin1'
     binary: true
     responseType: 'arraybuffer'
     #overrideMimeType: 'text\/plain; charset=x-user-defined'
     headers:
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
     #anonymous: true
+    onerror: (response)->
+      GM_log "response.status = #{response.status}, response.statusText = #{response.statusText}"
     onload: (response)->
       if response.status is 200
         data = Buffer.from response.response
@@ -298,6 +302,8 @@ preLoginEncrypt = (n,g) ->
     url: "https://passportapi.115.com/app/2.0/web/#{g_ver}/login/sign?k_ec=#{token}"
     responseType: 'arraybuffer'
     anonymous: true
+    onerror: (response)->
+      GM_log "response.status = #{response.status}, response.statusText = #{response.statusText}"
     onload: (response)->
       if response.status is 200
         data = Buffer.from response.response
@@ -330,6 +336,12 @@ browserInterface.LoginEncrypt = (n,g) ->
 
 browserInterface.GetBrowserVersion = ->
   new String(g_ver)
+
+browserInterface.ChromeGetIncognitoState = ->
+  false
+
+if typeof cloneInto isnt 'function'
+  cloneInto = (x) -> x
 
 unsafeWindow.browserInterface = cloneInto browserInterface, unsafeWindow, {cloneFunctions: true}
 
